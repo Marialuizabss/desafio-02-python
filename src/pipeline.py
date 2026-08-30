@@ -4,7 +4,7 @@ from pathlib import Path
 from hashlib import sha256
 import json, logging, re
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from .config import resolve
 from .database import create_session_factory, session_scope, find_by_protocol
@@ -51,17 +51,24 @@ def process_all(cfg: dict) -> pd.DataFrame:
                     fields=extract_fields(raw); classification,reasons,normalized=validate_record(fields,categories)
                     protocol=normalized.get("protocolo") or f"INVALIDO-{doc.id}-{page['pagina']}-{len(rows)+1}"
                     if find_by_protocol(session,protocol): classification="duplicado"; reasons.append("protocolo_duplicado")
-                    row={**fields,"protocolo":protocol,"categoria":normalized.get("categoria_normalizada") or fields.get("categoria"),"data":normalized.get("data_obj"),"tempo_minutos":normalized.get("tempo_obj"),"classificacao":classification,"motivos":";".join(reasons),"documento":pdf.name,"pagina":page["pagina"],"metodo":page["metodo"]}
+                    cep_info=lookup_cep(fields.get("cep") or "",cfg["api"]["cep_base_url"],cfg["api"]["timeout_segundos"]) or {}
+                    row={**fields,"protocolo":protocol,"categoria":normalized.get("categoria_normalizada") or fields.get("categoria"),"data":normalized.get("data_obj"),"tempo_minutos":normalized.get("tempo_obj"),"classificacao":classification,"motivos":";".join(reasons),"documento":pdf.name,"pagina":page["pagina"],"metodo":page["metodo"],"municipio":cep_info.get("municipio"),"uf":cep_info.get("uf")}
                     rows.append(row)
                     if classification=="duplicado":
                         session.add(ErroProcessamento(documento_id=doc.id,pagina=page["pagina"],etapa="deduplicacao",tipo="Duplicidade",mensagem=protocol)); continue
-                    cep_info=lookup_cep(fields.get("cep") or "",cfg["api"]["cep_base_url"],cfg["api"]["timeout_segundos"]) or {}
                     item=Atendimento(documento_id=doc.id,pagina=page["pagina"],protocolo=protocol,data=normalized.get("data_obj"),solicitante=fields.get("solicitante"),email=fields.get("email"),categoria=row["categoria"],descricao=fields.get("descricao"),solucao=fields.get("solucao"),tempo_minutos=normalized.get("tempo_obj"),status=fields.get("status"),cep=fields.get("cep"),municipio=cep_info.get("municipio"),uf=cep_info.get("uf"),classificacao=classification,motivos=row["motivos"],texto_original=raw,texto_limpo=preprocess(raw))
                     session.add(item); session.flush()
                     for idx,content in enumerate(split_chunks(raw,cfg["embeddings"]["tamanho_chunk"],cfg["embeddings"]["sobreposicao"])):
                         meta={"protocolo":protocol,"documento":pdf.name,"pagina":page["pagina"],"categoria":row["categoria"] or ""}
                         session.add(Chunk(atendimento_id=item.id,documento_id=doc.id,pagina=page["pagina"],indice=idx,conteudo=content,metadata_json=metadata_json(**meta)))
+        erros_etapa=dict(session.execute(
+            select(ErroProcessamento.etapa,func.count()).group_by(ErroProcessamento.etapa)
+        ).all())
+
+        erros_tipo=dict(session.execute(
+            select(ErroProcessamento.tipo,func.count()).group_by(ErroProcessamento.tipo)
+        ).all())
     df=pd.DataFrame(rows)
     if not df.empty:
-        export_results(df,output,cfg["saida"]["csv"],cfg["saida"]["indicadores"]); generate_charts(df,resolve(root,cfg["saida"]["graficos"]))
+        export_results(df,output,cfg["saida"]["csv"],cfg["saida"]["indicadores"],erros_etapa,erros_tipo); generate_charts(df,resolve(root,cfg["saida"]["graficos"]))
     return df
