@@ -40,24 +40,40 @@ def process_all(cfg: dict) -> pd.DataFrame:
                 logging.info("Documento já processado; ignorando: %s",pdf.name)
                 continue
             method="ocr" if all(p["metodo"]=="ocr_pendente" for p in page_data) else "extracao_direta"
+            ocr_failed=False
+
+            for page in page_data:
+                if page["metodo"]=="ocr_pendente":
+                    try:
+                        page["texto"]=ocr_page(pdf,page["pagina"],cfg["ocr"]["dpi"],cfg["ocr"]["idioma"]); page["metodo"]="ocr"
+                    except Exception as exc:
+                        session.add(ErroProcessamento(documento_id=None,pagina=page["pagina"],etapa="ocr",tipo=type(exc).__name__,mensagem=str(exc))); logging.exception("OCR falhou: %s p.%s",pdf.name,page["pagina"]); ocr_failed=True
+        
+            if ocr_failed:
+                logging.warning("Documento não marcado como processado devido a falha de OCR: %s",pdf.name)
+                continue
+    
             doc=Documento(nome_arquivo=pdf.name,hash_sha256=digest,total_paginas=len(page_data),metodo=method); session.add(doc); session.flush()
+    
             for page in page_data:
                 text=page["texto"]
-                if page["metodo"]=="ocr_pendente":
-                    try: text=ocr_page(pdf,page["pagina"],cfg["ocr"]["dpi"],cfg["ocr"]["idioma"]); page["metodo"]="ocr"
-                    except Exception as exc:
-                        session.add(ErroProcessamento(documento_id=doc.id,pagina=page["pagina"],etapa="ocr",tipo=type(exc).__name__,mensagem=str(exc))); logging.exception("OCR falhou: %s p.%s",pdf.name,page["pagina"]); continue
                 for raw in split_records(text):
                     fields=extract_fields(raw); classification,reasons,normalized=validate_record(fields,categories)
                     protocol=normalized.get("protocolo") or f"INVALIDO-{doc.id}-{page['pagina']}-{len(rows)+1}"
-                    if find_by_protocol(session,protocol): classification="duplicado"; reasons.append("protocolo_duplicado")
+                    
+                    if find_by_protocol(session,protocol):
+                        classification="duplicado"; reasons.append("protocolo_duplicado")
+                        
                     cep_info=lookup_cep(fields.get("cep") or "",cfg["api"]["cep_base_url"],cfg["api"]["timeout_segundos"]) or {}
                     row={**fields,"protocolo":protocol,"categoria":normalized.get("categoria_normalizada") or fields.get("categoria"),"data":normalized.get("data_obj"),"tempo_minutos":normalized.get("tempo_obj"),"classificacao":classification,"motivos":";".join(reasons),"documento":pdf.name,"pagina":page["pagina"],"metodo":page["metodo"],"municipio":cep_info.get("municipio"),"uf":cep_info.get("uf")}
                     rows.append(row)
+                    
                     if classification=="duplicado":
                         session.add(ErroProcessamento(documento_id=doc.id,pagina=page["pagina"],etapa="deduplicacao",tipo="Duplicidade",mensagem=protocol)); continue
+                        
                     item=Atendimento(documento_id=doc.id,pagina=page["pagina"],protocolo=protocol,data=normalized.get("data_obj"),solicitante=fields.get("solicitante"),email=fields.get("email"),categoria=row["categoria"],descricao=fields.get("descricao"),solucao=fields.get("solucao"),tempo_minutos=normalized.get("tempo_obj"),status=fields.get("status"),cep=fields.get("cep"),municipio=cep_info.get("municipio"),uf=cep_info.get("uf"),classificacao=classification,motivos=row["motivos"],texto_original=raw,texto_limpo=preprocess(raw))
                     session.add(item); session.flush()
+                    
                     for idx,content in enumerate(split_chunks(raw,cfg["embeddings"]["tamanho_chunk"],cfg["embeddings"]["sobreposicao"])):
                         meta={"protocolo":protocol,"documento":pdf.name,"pagina":page["pagina"],"categoria":row["categoria"] or ""}
                         session.add(Chunk(atendimento_id=item.id,documento_id=doc.id,pagina=page["pagina"],indice=idx,conteudo=content,metadata_json=metadata_json(**meta)))
