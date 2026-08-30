@@ -14,6 +14,7 @@ from .ocr_processor import ocr_page
 from .validation import extract_fields, validate_record, clean_text
 from .text_processor import preprocess, split_chunks, metadata_json
 from .analytics import export_results, generate_charts
+from .cep_client import lookup_cep
 
 def configure_logging(path: Path):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -54,7 +55,8 @@ def process_all(cfg: dict) -> pd.DataFrame:
                     rows.append(row)
                     if classification=="duplicado":
                         session.add(ErroProcessamento(documento_id=doc.id,pagina=page["pagina"],etapa="deduplicacao",tipo="Duplicidade",mensagem=protocol)); continue
-                    item=Atendimento(documento_id=doc.id,pagina=page["pagina"],protocolo=protocol,data=normalized.get("data_obj"),solicitante=fields.get("solicitante"),email=fields.get("email"),categoria=row["categoria"],descricao=fields.get("descricao"),solucao=fields.get("solucao"),tempo_minutos=normalized.get("tempo_obj"),status=fields.get("status"),cep=fields.get("cep"),municipio=None,uf=None,classificacao=classification,motivos=row["motivos"],texto_original=raw,texto_limpo=preprocess(raw))
+                    cep_info=lookup_cep(fields.get("cep") or "",cfg["api"]["cep_base_url"],cfg["api"]["timeout_segundos"]) or {}
+                    item=Atendimento(documento_id=doc.id,pagina=page["pagina"],protocolo=protocol,data=normalized.get("data_obj"),solicitante=fields.get("solicitante"),email=fields.get("email"),categoria=row["categoria"],descricao=fields.get("descricao"),solucao=fields.get("solucao"),tempo_minutos=normalized.get("tempo_obj"),status=fields.get("status"),cep=fields.get("cep"),municipio=cep_info.get("municipio"),uf=cep_info.get("uf"),classificacao=classification,motivos=row["motivos"],texto_original=raw,texto_limpo=preprocess(raw))
                     session.add(item); session.flush()
                     for idx,content in enumerate(split_chunks(raw,cfg["embeddings"]["tamanho_chunk"],cfg["embeddings"]["sobreposicao"])):
                         meta={"protocolo":protocol,"documento":pdf.name,"pagina":page["pagina"],"categoria":row["categoria"] or ""}
