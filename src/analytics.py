@@ -49,7 +49,7 @@ def generate_charts(df: pd.DataFrame, directory: str | Path) -> None:
     path=Path(directory); path.mkdir(parents=True,exist_ok=True)
     plots=[("categoria","Atendimentos por categoria","atendimentos_categoria.png"),("status","Atendimentos por status","atendimentos_status.png")]
     for column,title,name in plots:
-        ax=df[column].fillna("Sem informação").value_counts().sort_values().plot.barh(color="#1F4E78",figsize=(9,5))
+        ax=df[column].replace(r"^\s*$","Sem informação",regex=True).fillna("Sem informação").value_counts().sort_values().plot.barh(color="#1F4E78",figsize=(9,5))
         ax.set_title(title); ax.set_xlabel("Quantidade"); ax.set_ylabel(""); plt.tight_layout(); plt.savefig(path/name,dpi=160); plt.close()
     temp=df.assign(tempo=pd.to_numeric(df["tempo_minutos"],errors="coerce")).groupby("categoria")["tempo"].mean().dropna().sort_values()
     ax=temp.plot.barh(color="#D6A84B",figsize=(9,5)); ax.set_title("Tempo médio por categoria"); ax.set_xlabel("Minutos"); ax.set_ylabel(""); plt.tight_layout(); plt.savefig(path/"tempo_medio_categoria.png",dpi=160); plt.close()
