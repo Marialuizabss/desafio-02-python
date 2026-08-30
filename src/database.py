@@ -31,3 +31,15 @@ def delete_by_protocol(session: Session, protocol: str) -> bool:
         return False
     session.delete(item)
     return True
+
+def update_by_protocol(session: Session, protocol: str, **fields) -> Atendimento | None:
+    item = find_by_protocol(session, protocol)
+    if not item:
+        return None
+
+    for key, value in fields.items():
+        if hasattr(item, key):
+            setattr(item, key, value)
+
+    session.flush()
+    return item
