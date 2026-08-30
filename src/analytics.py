@@ -7,16 +7,38 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def build_indicators(df: pd.DataFrame) -> dict:
-    times=pd.to_numeric(df.get("tempo_minutos"),errors="coerce").dropna().to_numpy(dtype=float)
+    times = pd.to_numeric(
+        df.get("tempo_minutos"),
+        errors="coerce"
+    ).dropna().to_numpy(dtype=float)
+
+    paginas = (
+        df[["documento", "pagina", "metodo"]]
+        .dropna(subset=["documento", "pagina"])
+        .drop_duplicates(subset=["documento", "pagina"])
+    )
+
+    percentual_ocr = (
+        float((paginas["metodo"] == "ocr").mean() * 100)
+        if len(paginas)
+        else 0.0
+    )
+
     return {
-      "total_registros":int(len(df)),
-      "por_classificacao":df.get("classificacao",pd.Series(dtype=str)).value_counts(dropna=False).to_dict(),
-      "por_categoria":df.get("categoria",pd.Series(dtype=str)).value_counts(dropna=False).to_dict(),
-      "por_status":df.get("status",pd.Series(dtype=str)).value_counts(dropna=False).to_dict(),
-      "tempo_medio":float(np.mean(times)) if times.size else None,
-      "tempo_mediano":float(np.median(times)) if times.size else None,
-      "tempo_desvio_padrao":float(np.std(times)) if times.size else None,
-      "percentual_ocr":float((df.get("metodo",pd.Series(dtype=str))=="ocr").mean()*100) if len(df) else 0.0,
+        "total_registros": int(len(df)),
+        "por_classificacao": df.get(
+            "classificacao", pd.Series(dtype=str)
+        ).value_counts(dropna=False).to_dict(),
+        "por_categoria": df.get(
+            "categoria", pd.Series(dtype=str)
+        ).value_counts(dropna=False).to_dict(),
+        "por_status": df.get(
+            "status", pd.Series(dtype=str)
+        ).value_counts(dropna=False).to_dict(),
+        "tempo_medio": float(np.mean(times)) if times.size else None,
+        "tempo_mediano": float(np.median(times)) if times.size else None,
+        "tempo_desvio_padrao": float(np.std(times)) if times.size else None,
+        "percentual_ocr": percentual_ocr,
     }
 
 def export_results(df: pd.DataFrame, output_dir: str | Path, csv_name: str, json_name: str) -> dict:
