@@ -61,7 +61,7 @@ streamlit run src/app_streamlit.py
 Testes:
 
 ```bash
-pytest
+python -m pytest -q
 ```
 
 ## Modo sem chave da OpenAI
