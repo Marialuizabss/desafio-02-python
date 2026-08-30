@@ -5,9 +5,11 @@ import os
 SYSTEM="Responda somente com base no contexto. Se a resposta não estiver sustentada, diga que não há informação suficiente. Cite os protocolos utilizados."
 
 def local_answer(question:str,sources:list[dict]) -> dict:
+    """Retorna os resultados recuperados quando a geração com LLM não está disponível."""
     return {"resposta":"Modo local: foram recuperados os trechos mais semelhantes. Configure OPENAI_API_KEY para gerar uma síntese.","modo":"recuperacao_local","pergunta":question,"fontes":sources}
 
 def answer(question:str,sources:list[dict],model:str="gpt-4.1-mini") -> dict:
+    """Gera uma resposta RAG com base nas fontes recuperadas ou utiliza o modo local."""
     if not os.getenv("OPENAI_API_KEY"): return local_answer(question,sources)
     try:
         from langchain_openai import ChatOpenAI

@@ -16,15 +16,18 @@ from .text_processor import preprocess, split_chunks, metadata_json
 from .analytics import export_results, generate_charts
 from .cep_client import lookup_cep
 
-def configure_logging(path: Path):
+def configure_logging(path: Path) -> None:
+    """Configura o registro de logs em arquivo e no terminal."""    
     path.parent.mkdir(parents=True,exist_ok=True)
     logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s",handlers=[logging.FileHandler(path,encoding="utf-8"),logging.StreamHandler()])
 
 def split_records(page_text: str) -> list[str]:
+    """Divide o texto de uma página em registros individuais de atendimento."""
     parts=re.split(r"(?=Protocolo\s+(?:AT-\d{3}|PROTOCOLO\?))",clean_text(page_text),flags=re.I)
     return [p.strip() for p in parts if re.search(r"Protocolo\s+",p,re.I)]
 
 def process_all(cfg: dict) -> pd.DataFrame:
+    """Executa o pipeline completo de processamento dos documentos e atendimentos."""
     root=Path(cfg["_root"]); output=resolve(root,cfg["saida"]["diretorio"]); output.mkdir(parents=True,exist_ok=True)
     configure_logging(output/cfg["saida"]["log"])
     categories=json.loads((root/"data"/"auxiliares"/"categorias.json").read_text(encoding="utf-8"))

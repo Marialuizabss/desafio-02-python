@@ -9,6 +9,7 @@ from .embeddings import EmbeddingService
 from .vector_store import ChromaStore
 
 def build_index(cfg: dict) -> int:
+    """Gera embeddings dos chunks persistidos e os indexa no ChromaDB."""
     root=Path(cfg["_root"]); url=cfg["banco"]["url"]
     if url.startswith("sqlite:///") and not url.startswith("sqlite:////"): url="sqlite:///"+str(root/url[10:])
     with Session(create_engine(url)) as session: chunks=list(session.scalars(select(Chunk)).all())
@@ -25,6 +26,7 @@ def semantic_query(
     category: str | None = None,
     protocol: str | None = None
 ) -> list[dict]:
+    """Realiza uma busca semântica com filtros opcionais de categoria e protocolo."""
     root = Path(cfg["_root"])
 
     service = EmbeddingService(cfg["embeddings"]["modelo"])

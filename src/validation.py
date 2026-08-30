@@ -1,6 +1,6 @@
 """Extração por regex, normalização e validação dos registros."""
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, date
 import re, unicodedata
 
 EMAIL_RE=re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
@@ -14,27 +14,32 @@ FIELD_PATTERNS={
  "solucao":r"Solucao\s+(.+?)\s+Observacoes", "observacoes":r"Observacoes\s+(.+)$"}
 
 def clean_text(text: str) -> str:
+    """Normaliza espaços e remove caracteres nulos do texto."""
     text=text.replace("\x00", " ")
     return re.sub(r"\s+", " ", text).strip()
 
 def extract_fields(text: str) -> dict:
+    """Extrai os campos estruturados de um atendimento a partir do texto."""
     clean=clean_text(text); result={}
     for key,pattern in FIELD_PATTERNS.items():
         match=re.search(pattern,clean,re.I|re.S)
         result[key]=match.group(1).strip() if match else ""
     return result
 
-def parse_date(value: str):
+def parse_date(value: str) -> date | None:
+    """Converte uma data textual para objeto date quando possível."""
     for fmt in ("%d/%m/%Y","%Y-%m-%d"):
         try: return datetime.strptime(value,fmt).date()
         except ValueError: pass
     return None
 
 def normalize_key(value: str) -> str:
+    """Normaliza uma string para comparação e validação."""
     value=unicodedata.normalize("NFKD",value).encode("ascii","ignore").decode().lower().strip()
     return re.sub(r"\s+"," ",value)
 
 def normalize_category(value: str, categories: dict) -> str | None:
+    """Normaliza a categoria e retorna o nome oficial quando encontrado."""
     target=normalize_key(value)
     for item in categories.get("categorias_oficiais",[]):
         if target in {normalize_key(item["nome"]),*(normalize_key(v) for v in item["variacoes"])}:
@@ -42,6 +47,7 @@ def normalize_category(value: str, categories: dict) -> str | None:
     return None
 
 def validate_record(record: dict, categories: dict) -> tuple[str,list[str],dict]:
+    """Valida os campos do registro e retorna sua classificação e os dados normalizados."""
     r=dict(record); reasons=[]
     protocol=r.get("protocolo","").strip().upper(); r["protocolo"]=protocol
     if not PROTO_RE.fullmatch(protocol): reasons.append("protocolo_invalido")

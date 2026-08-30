@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests
 
 def lookup_cep(cep: str, base_url: str, timeout: int=8) -> dict | None:
+    """Consulta um CEP e retorna os dados de localização quando disponíveis."""
     digits="".join(ch for ch in cep if ch.isdigit())
     if len(digits)!=8: return None
     try:

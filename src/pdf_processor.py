@@ -4,6 +4,7 @@ from pathlib import Path
 from pypdf import PdfReader
 
 def extract_pdf_pages(path: str | Path, min_chars: int = 40) -> list[dict]:
+    """Extrai o texto das páginas do PDF e identifica aquelas que precisam de OCR."""
     reader=PdfReader(str(path)); pages=[]
     for number,page in enumerate(reader.pages,1):
         text=(page.extract_text() or "").strip()

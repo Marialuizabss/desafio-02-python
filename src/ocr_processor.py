@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 def ocr_page(pdf_path: str | Path, page_number: int, dpi: int = 300, language: str = "por") -> str:
+    """Executa OCR em uma página do PDF e retorna o texto extraído."""
     try:
         from pdf2image import convert_from_path
         import pytesseract

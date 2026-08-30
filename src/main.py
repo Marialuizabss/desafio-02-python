@@ -6,7 +6,8 @@ from .pipeline import process_all
 from .indexer import build_index, semantic_query
 from .rag import answer
 
-def main():
+def main() -> None:
+    """Executa o processamento, a indexação e as consultas pela linha de comando."""
     parser=argparse.ArgumentParser(description="Processa e consulta os atendimentos")
     parser.add_argument("--indexar",action="store_true"); parser.add_argument("--pergunta"); parser.add_argument("--top-k",type=int,default=5)
     args=parser.parse_args(); cfg=load_config()

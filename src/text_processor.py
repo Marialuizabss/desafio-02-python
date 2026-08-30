@@ -5,21 +5,26 @@ import json, re, unicodedata
 STOPWORDS={"a","o","as","os","de","da","do","das","dos","e","em","um","uma","para","por","com","que","no","na"}
 
 def normalize_text(text: str) -> str:
+    """Normaliza espaços e remove caracteres nulos do texto."""
     return re.sub(r"\s+"," ",text.replace("\x00"," ")).strip()
 
 def tokens(text: str) -> list[str]:
+    """Tokeniza o texto normalizado e remove stopwords."""
     plain=unicodedata.normalize("NFKD",text.lower()).encode("ascii","ignore").decode()
     return [t for t in re.findall(r"[a-z0-9]+",plain) if t not in STOPWORDS]
 
 def lemma_light(token: str) -> str:
+    """Aplica uma redução morfológica simplificada ao token."""
     for suffix in ("mente","coes","cao","ando","endo","idos","adas","ado","ida","s"):
         if token.endswith(suffix) and len(token)>len(suffix)+3: return token[:-len(suffix)]
     return token
 
 def preprocess(text: str) -> str:
+    """Executa o pré-processamento textual com tokenização e redução morfológica."""
     return " ".join(lemma_light(t) for t in tokens(text))
 
 def split_chunks(text: str, size: int=500, overlap: int=80) -> list[str]:
+    """Divide o texto em chunks com sobreposição configurável."""
     text=normalize_text(text)
     if size<=0 or overlap<0 or overlap>=size: raise ValueError("Parametros de chunk invalidos")
     chunks=[]; start=0
@@ -33,5 +38,6 @@ def split_chunks(text: str, size: int=500, overlap: int=80) -> list[str]:
         start=end-overlap
     return [c for c in chunks if c]
 
-def metadata_json(**kwargs) -> str:
+def metadata_json(**kwargs: Any) -> str:
+    """Serializa os metadados informados em formato JSON."""
     return json.dumps(kwargs,ensure_ascii=False,sort_keys=True)

@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def build_indicators(df: pd.DataFrame, erros_etapa: dict | None=None, erros_tipo: dict | None=None) -> dict:    
+    """Calcula os principais indicadores dos atendimentos processados."""
     times=pd.to_numeric(df.get("tempo_minutos"),errors="coerce").dropna().to_numpy(dtype=float)
     paginas=df[["documento","pagina","metodo"]].dropna(subset=["documento","pagina"]).drop_duplicates(subset=["documento","pagina"])
     classificacoes=df.get("classificacao",pd.Series(dtype=str)).value_counts(dropna=False)
@@ -39,6 +40,7 @@ def build_indicators(df: pd.DataFrame, erros_etapa: dict | None=None, erros_tipo
     }
 
 def export_results(df: pd.DataFrame, output_dir: str | Path, csv_name: str, json_name: str, erros_etapa: dict | None=None, erros_tipo: dict | None=None) -> dict:    
+    """Exporta os dados processados em CSV e os indicadores em JSON."""
     out=Path(output_dir); out.mkdir(parents=True,exist_ok=True)
     indicators=build_indicators(df,erros_etapa,erros_tipo)
     df.to_csv(out/csv_name,index=False,encoding="utf-8")
@@ -46,6 +48,7 @@ def export_results(df: pd.DataFrame, output_dir: str | Path, csv_name: str, json
     return indicators
 
 def generate_charts(df: pd.DataFrame, directory: str | Path) -> None:
+    """Gera gráficos dos atendimentos por categoria, status e tempo médio."""
     path=Path(directory); path.mkdir(parents=True,exist_ok=True)
     plots=[("categoria","Atendimentos por categoria","atendimentos_categoria.png"),("status","Atendimentos por status","atendimentos_status.png")]
     for column,title,name in plots:

@@ -17,18 +17,30 @@ class AskRequest(BaseModel):
     protocolo: str | None = None
 
 @app.get("/health")
-def health(): return {"status":"ok","modo":"rag" if os.getenv("OPENAI_API_KEY") else "recuperacao_local"}
+def health() -> dict:
+    """Retorna o status da API e o modo de consulta disponível."""
+    return {"status":"ok","modo":"rag" if os.getenv("OPENAI_API_KEY") else "recuperacao_local"}
+
 
 @app.post("/ask")
-def ask(payload:AskRequest):
+def ask(payload: AskRequest) -> dict:
+    """Processa uma pergunta e retorna a resposta com as fontes recuperadas."""
     try:
         sources = semantic_query(
-    cfg,
-    payload.pergunta,
-    payload.top_k,
-    payload.categoria,
-    payload.protocolo
-)
-        return answer(payload.pergunta,sources,os.getenv("OPENAI_MODEL","gpt-4.1-mini"))
+            cfg,
+            payload.pergunta,
+            payload.top_k,
+            payload.categoria,
+            payload.protocolo
+        )
+        return answer(
+            payload.pergunta,
+            sources,
+            os.getenv("OPENAI_MODEL","gpt-4.1-mini")
+        )
+
     except Exception as exc:
-        raise HTTPException(status_code=503,detail=f"Consulta indisponível: {type(exc).__name__}") from exc
+        raise HTTPException(
+            status_code=503,
+            detail=f"Consulta indisponível: {type(exc).__name__}"
+        ) from exc
