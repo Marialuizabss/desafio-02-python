@@ -11,9 +11,10 @@ app=FastAPI(title="Atendimentos FIC_DEV",version="1.0.0")
 cfg=load_config()
 
 class AskRequest(BaseModel):
-    pergunta:str=Field(min_length=3,max_length=500)
-    top_k:int=Field(default=5,ge=1,le=20)
-    categoria:str|None=None
+    pergunta: str = Field(min_length=3, max_length=500)
+    top_k: int = Field(default=5, ge=1, le=20)
+    categoria: str | None = None
+    protocolo: str | None = None
 
 @app.get("/health")
 def health(): return {"status":"ok","modo":"rag" if os.getenv("OPENAI_API_KEY") else "recuperacao_local"}
@@ -21,7 +22,13 @@ def health(): return {"status":"ok","modo":"rag" if os.getenv("OPENAI_API_KEY") 
 @app.post("/ask")
 def ask(payload:AskRequest):
     try:
-        sources=semantic_query(cfg,payload.pergunta,payload.top_k,payload.categoria)
+        sources = semantic_query(
+    cfg,
+    payload.pergunta,
+    payload.top_k,
+    payload.categoria,
+    payload.protocolo
+)
         return answer(payload.pergunta,sources,os.getenv("OPENAI_MODEL","gpt-4.1-mini"))
     except Exception as exc:
         raise HTTPException(status_code=503,detail=f"Consulta indisponível: {type(exc).__name__}") from exc

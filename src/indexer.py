@@ -18,9 +18,44 @@ def build_index(cfg: dict) -> int:
     store.upsert([str(c.id) for c in chunks],docs,[json.loads(c.metadata_json) for c in chunks],vectors.tolist())
     return len(chunks)
 
-def semantic_query(cfg:dict,question:str,top_k:int=5,category:str|None=None) -> list[dict]:
-    root=Path(cfg["_root"]); service=EmbeddingService(cfg["embeddings"]["modelo"]); query=service.encode([question])[0].tolist()
-    store=ChromaStore(root/cfg["chromadb"]["diretorio"],cfg["chromadb"]["colecao"])
-    where={"categoria":category} if category else None
-    rows=store.query(query,top_k,where)
-    return [{**r["metadata"],"conteudo":r["conteudo"],"similaridade":round(r["similaridade"],4)} for r in rows]
+def semantic_query(
+    cfg: dict,
+    question: str,
+    top_k: int = 5,
+    category: str | None = None,
+    protocol: str | None = None
+) -> list[dict]:
+    root = Path(cfg["_root"])
+
+    service = EmbeddingService(cfg["embeddings"]["modelo"])
+    query = service.encode([question])[0].tolist()
+
+    store = ChromaStore(
+        root / cfg["chromadb"]["diretorio"],
+        cfg["chromadb"]["colecao"]
+    )
+
+    if category and protocol:
+        where = {
+            "$and": [
+                {"categoria": category},
+                {"protocolo": protocol}
+            ]
+        }
+    elif category:
+        where = {"categoria": category}
+    elif protocol:
+        where = {"protocolo": protocol}
+    else:
+        where = None
+
+    rows = store.query(query, top_k, where)
+
+    return [
+        {
+            **r["metadata"],
+            "conteudo": r["conteudo"],
+            "similaridade": round(r["similaridade"], 4)
+        }
+        for r in rows
+    ]
